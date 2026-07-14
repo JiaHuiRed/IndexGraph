@@ -1,0 +1,23 @@
+{
+  "name": "indexgraph",
+  "version": "0.0.1",
+  "description": "CodeGraph-style local code graph for frontend logic embedded in HTML <script> blocks — CLI + MCP server",
+  "main": "lib/index-store.js",
+  "bin": {
+    "indexgraph": "bin/indexgraph.js"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["mcp", "code-graph", "html", "javascript"],
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "acorn": "^8.17.0",
+    "acorn-walk": "^8.3.5"
+  }
+}
