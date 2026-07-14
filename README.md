@@ -2,7 +2,7 @@
 
 > _A local code graph for frontend logic embedded in HTML `<script>` blocks._
 
-[![Version](https://badgen.net/badge/版本/0.0.1/blue)](CHANGELOG.md)
+[![Version](https://badgen.net/badge/版本/0.0.2/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
 **IndexGraph** 是 [CodeGraph](https://github.com/colbymchenry/codegraph) 的补充——专门吃它吃不下的那块：写在 `.html` 文件里 `<script>` 标签内联的前端 JS。100% 本地，不上传任何代码。
