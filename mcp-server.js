@@ -3,7 +3,7 @@
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
-const { loadIndex } = require('./lib/index-store');
+const { loadIndex, ensureFresh } = require('./lib/index-store');
 const { nodeInfo, explore } = require('./lib/query');
 
 const server = new Server({ name: 'indexgraph', version: require('./package.json').version }, { capabilities: { tools: {} } });
@@ -51,10 +51,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
   const root = args.projectPath || process.cwd();
-  const index = loadIndex(root);
-  if (!index) {
+  if (!loadIndex(root)) {
     return { content: [{ type: 'text', text: `No .indexgraph index found at ${root} — run "indexgraph init" in that project first.` }] };
   }
+  const index = ensureFresh(root); // transparently rebuilds if any indexed file changed since last build
 
   if (name === 'indexgraph_node') {
     const matches = nodeInfo(index, args.name);

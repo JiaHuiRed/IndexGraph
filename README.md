@@ -2,7 +2,7 @@
 
 > _A local code graph for frontend logic embedded in HTML `<script>` blocks._
 
-[![Version](https://badgen.net/badge/版本/0.0.2/blue)](CHANGELOG.md)
+[![Version](https://badgen.net/badge/版本/0.0.3/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
 **IndexGraph** 是 [CodeGraph](https://github.com/colbymchenry/codegraph) 的补充——专门吃它吃不下的那块：写在 `.html` 文件里 `<script>` 标签内联的前端 JS。100% 本地，不上传任何代码。
@@ -17,6 +17,7 @@
 - **模糊探索** — `indexgraph explore "<关键词>"`：不知道确切名字时，按函数名 / 函数体匹配打分排序
 - **MCP server** — 接入 Claude Code 等 agent，作为 `indexgraph_node` / `indexgraph_explore` 工具直接调用
 - 源码永远现读现取（不是缓存），跟 Read 工具看到的内容逐字节一致
+- **索引过期自动重建** — 查询前按文件 mtime 检测是否有改动，过期就透明重建，不用记得手动重跑 `indexgraph init`
 
 ---
 

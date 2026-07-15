@@ -1,5 +1,16 @@
 # IndexGraph 更新日志
 
+## 0.0.3（2026-07-15）
+
+### ✨ 新增
+
+- **索引过期自动重建** — 在 `SystemManager` 上实测踩到的问题：索引建好后项目代码接着被大量修改，符号的行号在索引里没变，但文件里对应位置早就是别的内容了，`indexgraph node`/`explore` 会读出行号对得上但内容驴唇不对马嘴的结果，而且不报错，不容易发现。新增 `isStale()`（按每个已索引文件的 mtime 比对，检测文件改动/删除/新增）和 `ensureFresh()`（发现过期就透明地整体重建一次，索引方式跟 `init` 一致），CLI 和 MCP server 两条路径都接入，查询前自动确保新鲜，不用再记得手动 `indexgraph init`。改于 `lib/index-store.js`、`bin/indexgraph.js`、`mcp-server.js`。
+- 顺手修了 `buildIndex()` 里 `builtAt` 字段一直是 `null` 从没赋值的问题。
+
+### 🧪 验证
+
+- 在 `SystemManager`（一个已知过期的索引，`vSalary` 等函数是索引建好后才加的）上实测：`indexgraph node vSalary` 先打印 `[indexgraph] index was stale, rebuilt automatically`，然后返回正确的当前源码；紧接着再查一次，不再触发重建（无提示、耗时对照持平在 0.2~0.3s），确认"改了才重建、没改不重建"符合预期。
+
 ## 0.0.2（2026-07-14）
 
 ### 🐛 修复

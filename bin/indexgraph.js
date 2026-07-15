@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 'use strict';
 const path = require('path');
-const { buildIndex, saveIndex, loadIndex, findHtmlFiles } = require('../lib/index-store');
+const { buildIndex, saveIndex, loadIndex, findHtmlFiles, ensureFresh } = require('../lib/index-store');
 const { nodeInfo, explore, allSymbols } = require('../lib/query');
 const pkg = require('../package.json');
 
 function requireIndex(root) {
-  const index = loadIndex(root);
-  if (!index) {
+  const before = loadIndex(root);
+  if (!before) {
     console.error(`[ERR] no .indexgraph index found in ${root} — run "indexgraph init" first`);
     process.exit(1);
   }
-  return index;
+  return ensureFresh(root, {
+    onRebuild: () => console.error('[indexgraph] index was stale, rebuilt automatically'),
+  });
 }
 
 function printSymbolBlock(s) {
