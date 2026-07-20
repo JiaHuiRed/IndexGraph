@@ -1,5 +1,21 @@
 # IndexGraph 更新日志
 
+## 0.0.4（2026-07-20）
+
+### 🐛 修复
+
+- **中文自然语言查询几乎拿不到任何 token** — 在 `SystemManager` 上实际用 `indexgraph_explore` 复盘时发现：`explore()` 用 `query.split(/\W+/)` 分词，JS 正则的 `\W` 只认 `[A-Za-z0-9_]` 是"单词字符"，连续的中文字符整段被当成分隔符，直接丢光。实测查询 `"高新收入辅助账汇总tab分页怎么做的"` 分词结果是 `["tab"]`——中文部分一个字都没留下。改为专门识别 CJK 字符游程（`\u{3400}-\u{9fff}`），整段游程保留为一个 token（短关键词查询够用，如"高新收入辅助账"），同时因为中文自然语言问句里"如何""在""里""做"这类虚词会跟实词粘在一起、整段游程当一个token又会因为太长匹配不到任何代码原文，额外生成有重叠的二字 bigram（如"高新收入"→"高新"/"新收"/"收入"）作为补充信号，参与打分时权重调低（0.34 vs 整词的 1），避免噪声bigram盖过精确匹配。改于 `lib/query.js`。
+- **符号名部分命中时，正文文本打分被跳过** — `explore()` 原逻辑：只有当符号名一个词都没匹配上（`score===0`）时才去扫正文文本加分；名字里哪怕只沾上一个词的边（比如 `vIncomeLedger` 的名字里包含 "incomeledger"）就直接跳过正文扫描，导致它拿不到本该属于它的、正文里那些精确匹配的分数，反而被名字完全不相关、但正文里凑巧撞上几个常见词（"summary"/"total"/"row" 这类几乎每个列表渲染函数都有的词）的其它符号反超。实测查询 `"how does the incomeledger summary tab pagination and total row work"`，`vIncomeLedger` 完全没进前5，被 `vPersonnel`/`vSalary`/`vProcesses`/`vMaterials`/`vProjects` 挤掉。改为正文文本打分总是执行，不再看名字匹配与否；为避免每个符号都重新读一遍所在文件（尤其像 `SystemManager` 这种几百个符号全挤在一个 3000+ 行文件里的项目），加了单次 `explore()` 调用范围内的按文件缓存（不跨调用缓存，仍然保证每次查询读到的是当前磁盘内容）。顺手加了一小撮英文虚词停用词表（how/does/the/and/…），避免这类零信号词无谓拉低精度。改于 `lib/query.js`。
+
+### 🧪 验证
+
+- 在 `SystemManager` 上用真实数据对照修复前后：
+  - 中文自然语言问句 `"如何在高新收入辅助账汇总tab里做分页和合计"`：修复前返回的5个结果（`_salTabsHtml`/`_bindSalTabs`/`_matTabsHtml`等）跟高新收入辅助账毫无关系，纯粹是"tab"这一个survive下来的词凑出来的；修复后 `_ilTabsHtml`/`vIncomeLedger` 排第1、2位。
+  - 英文自然语言问句同上场景：修复前 `vIncomeLedger` 完全不在前5；修复后排第1。
+  - 精确符号名查询（`vIncomeLedger`、`_findOrCreateProduct`）：修复前后结果一致，确认没有回归。
+  - 短中文关键词查询 `"高新收入辅助账 汇总"`：前5命中全部跟查询主题相关（`vProducts`/`_syncProductsFromLedger`/`vIncomeLedger`/`editIncomeLedger`/`_ilTabsHtml`），`vProducts` 排第1是因为它的按钮提示文案里原文写了"高新收入辅助账"，不算跑偏。
+- **注意**：`mcp-server.js` 在进程启动时 `require('./lib/query')` 一次，是长驻进程，修改 `lib/query.js` 后需要重启 MCP server 才会在实际调用的 `indexgraph_explore` 工具里生效（CLI `indexgraph explore` 每次是新进程，不受影响，已直接验证）。
+
 ## 0.0.3（2026-07-15）
 
 ### ✨ 新增
