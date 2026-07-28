@@ -18,7 +18,7 @@ function requireIndex(root) {
 
 function printSymbolBlock(s) {
   console.log(`\n**${s.name}** (${s.kind}) — ${s.file}:${s.startLine}`);
-  console.log('```javascript');
+  console.log('```' + (s.kind.startsWith('css') ? 'css' : 'javascript'));
   console.log(s.source);
   console.log('```');
   if (s.callers.length) console.log('Called by ← ' + s.callers.map(c => `${c.from} (${c.file})`).join(', '));
@@ -41,9 +41,10 @@ function main() {
     const index = buildIndex(target);
     saveIndex(target, index);
     const fileCount = Object.keys(index.files).length;
-    const symCount = Object.values(index.files).reduce((n, f) => n + f.symbols.length, 0);
+    const allSyms = Object.values(index.files).flatMap(f => f.symbols);
+    const cssCount = allSyms.filter(s => s.kind.startsWith('css')).length;
     const edgeCount = Object.values(index.files).reduce((n, f) => n + f.edges.length, 0);
-    console.log(`Indexed ${fileCount} file(s) with inline <script> — ${symCount} symbols, ${edgeCount} call edges`);
+    console.log(`Indexed ${fileCount} file(s) with inline <script>/<style> — ${allSyms.length} symbols (${cssCount} CSS rules), ${edgeCount} call edges`);
     return;
   }
 
@@ -76,12 +77,12 @@ function main() {
     return;
   }
 
-  console.log(`indexgraph v${pkg.version} — frontend (HTML <script>) code graph, CodeGraph-style
+  console.log(`indexgraph v${pkg.version} — frontend (HTML <script>/<style>) code graph, CodeGraph-style
 
 Usage:
-  indexgraph init [path]        Scan for .html files, extract inline <script>, build the index
+  indexgraph init [path]        Scan for .html files, extract inline <script>/<style>, build the index
   indexgraph files              List indexed files and symbol counts
-  indexgraph node <name>        Exact symbol: source + callers + callees
+  indexgraph node <name>        Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
   indexgraph explore "<query>"  Keyword search across symbol names / bodies
   indexgraph version            Print version
 `);

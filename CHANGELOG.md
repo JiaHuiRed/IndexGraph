@@ -1,5 +1,30 @@
 # IndexGraph 更新日志
 
+## 0.0.5（2026-07-28）
+
+### ✨ 新增
+
+- **索引 CSS，不再只有 JS** — 起因：在 `dossier` 项目上排查一个"双层表头（保证金分组）滚动后子表头盖住分组标题"的 bug，问题根源是 CSS（所有 `<th>` 共用同一条 `position:sticky;top:var(--sticky-offset,0px)` 规则，两行表头贴到了同一个 top），但 IndexGraph 只索引 `<script>`，查不到这条规则，只能退回 grep。这次补上 CSS 这一半：`lib/extract.js` 新增 `extractStyles()`（跟 `extractScripts()` 共用新提取的 `extractTagBlocks()` 辅助函数，用 `m[0].length - content.length - 闭合标签长度` 算开标签长度，比原来 `indexOf(content, 魔数偏移)` 的写法更不容易因为标签名长度变化而算错——顺手把 `extractScripts()` 也切到这条共用路径，行为不变）；`lib/parse.js` 新增 `parseCssBlock()`，手写一个轻量的、括号深度感知的选择器/规则块切分器（不用第三方 CSS 解析库），每条规则记录为一个 `{name: 选择器, kind:'css-rule', startLine, endLine}` 符号，没有调用边（CSS 没有"调用"这个概念）——这个"符号=名字+行号范围"的形状跟 JS 函数符号完全一样，所以 `lib/query.js` 的 `explore()`/`nodeInfo()`/`callersOf()`/`calleesOf()` 几乎不用改就能直接处理 CSS 符号（`callers`/`callees` 自然是空数组，不用特殊判断）。`@media`/`@supports`/`@document`/`@layer` 这类"里面还是选择器列表"的 at-rule 会递归展开，内部选择器各自独立成符号（名字前缀带上外层 at-rule 方便识别，如 `@media(max-width:980px) » .kpis`）；`@keyframes`/`@font-face`/`@import` 这类内容不是选择器列表的 at-rule 整体当一个不透明符号，不拆内部（`from`/`to`/百分比关键帧本来就不是有意义的查询目标）。
+- **CSS 精确查询支持裸 class/id 名** — `table.rec-table th.group-hdr` 这种复合选择器，用户/agent 大概率只会打 `group-hdr` 而不是背出整条选择器。`parseCssBlock()` 给每条规则额外算一份 `aliases`（选择器里出现的每个 `.class`/`#id`，带 `.`/`#` 和不带的都收，外加逗号分隔的每个并列分支），`findSymbol()` 匹配时改成 `s.name === name || s.aliases?.includes(name)`——JS 符号没有 `aliases` 字段，这个改动对 JS 查询是纯粹的 no-op，不影响原有行为。之所以不把这些别名也注册成 `explore()` 里的独立符号条目：`explore()` 的模糊打分本来就是子串匹配（`nameLower.includes(w)`），完整选择器字符串本身已经包含这些子串，重复注册只会让同一条规则在 fuzzy 结果里占好几个坑，挤掉其它真正不同的规则。
+- 改于 `lib/extract.js`、`lib/parse.js`、`lib/index-store.js`（`buildIndex()`/`isStale()` 两处都要并行处理 `extractScripts`+`extractStyles`）、`lib/query.js`；`bin/indexgraph.js`、`mcp-server.js` 的输出/工具描述跟着更新（代码块语言按 `kind` 是不是 css 开头切 `css`/`javascript`；MCP 的 `indexgraph_node`/`indexgraph_explore` 描述里说明现在也能查 CSS 选择器/class/id）。
+
+### ⚠️ 已知局限（这次顺手发现，写进 README）
+
+- `<style>`/`<script>` 提取是对 HTML 原文做正则匹配，不区分"真的在页面里生效的标签"和"某个 JS 函数拼 HTML 字符串时里面恰好写了看起来像标签的文本"。实测在 `SystemManager` 的 `printOutboundList()` 里，函数体内一段要 `document.write()` 的打印页面 HTML 字符串里写了 `<style>...@media print{@page{margin:10mm}}...</style>`，也被当成真实样式规则索引了进去（`indexgraph explore "page margin print"` 能查到，标成 `@media print » @page`，行号 `index.html:2700` 是对的，只是它不是当前页面真的在用的规则）。这是正则提取的固有局限，JS 那边理论上有同样的问题（字符串里写 `<script>`），只是更少见没实测撞上。索引到的行号/源码本身是真实准确的，只是"这是不是真的页面样式"需要自己判断一下。
+
+### 🧪 验证
+
+- 在 `dossier`（本次 bug 的源项目）上跑 `indexgraph init`：`Indexed 1 file(s) with inline <script>/<style> — 453 symbols (158 CSS rules), 448 call edges`。
+  - `indexgraph node group-hdr` → 正确找到 `table.rec-table th.group-hdr`（templates\index.html:110），验证裸 class 名查复合选择器。
+  - `indexgraph node table-wrap` → 找到 `.table-wrap`（:107），验证不带前导 `.` 的 class 名也能查。
+  - `indexgraph node ymPopupIn` → 找到 `@keyframes ymPopupIn`（:190），验证 at-rule 的名字部分也能当别名查。
+  - `indexgraph explore "position sticky th top offset"` → 第 2 名直接命中 `table.rec-table th{...position:sticky;top:var(--sticky-offset,0px)...}`（这条正是本次 bug 的根源规则），同一批结果里还带出 `applyStickyOffset()` 和另一处已经手动实现了"多行表头分别 sticky"的 `buildSide()`（`top:calc(var(--sticky-offset,0px) + 33px)`）——如果这次修 bug 之前就有这个查询能力，能少走好几轮 grep。
+  - `indexgraph explore "双层表头 保证金 重叠"` → 第 1 名就是这次实际改的 `renderTable()`，行号、内容都对得上刚提交的改动。
+- 在 `SystemManager`（另一个真实项目，规模不同、样式写法也不同）上跑 `indexgraph init`：`Indexed 1 file(s) with inline <script>/<style> — 387 symbols (193 CSS rules), 537 call edges`，没有崩溃/抛错。
+  - 该项目 `index.html:246` 有真实的 `@media(max-width:980px){...}` 块（跟 `@media` 后面没空格），`.kpis` 在外层（:158）和这个 media 块内（:250）各定义一次——`indexgraph node kpis` 两条都能查到，media 块内那条名字带 `@media(max-width:980px) » .kpis` 前缀、行号 250 正确，验证了 at-rule 递归展开 + 行号映射。
+  - 该项目还有 `@media print{@page{margin:10mm}}` 这种"at-rule 套 at-rule"的双层嵌套（:1973、:2700，两处重复），没有递归属性（`@page` 不在可递归集合里）走的是"整体当一个不透明符号"分支，没有报错也没有死循环，符号名 `@media print » @page`——顺带发现了上面写进"已知局限"的那个正则误伤案例（这两处实际都在 JS 字符串里，不是真的页面 `<style>`）。
+  - 精确符号查询（如已有的 JS 函数名）结果跟 0.0.4 时一致，确认没有回归。
+
 ## 0.0.4（2026-07-20）
 
 ### 🐛 修复

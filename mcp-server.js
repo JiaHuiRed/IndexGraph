@@ -11,11 +11,11 @@ const server = new Server({ name: 'indexgraph', version: require('./package.json
 const TOOLS = [
   {
     name: 'indexgraph_node',
-    description: "Exact symbol lookup in a project's frontend JS (functions defined inline in <script> tags inside .html files) — verbatim current source, plus who calls it and what it calls. Use when you already know the function name.",
+    description: "Exact symbol lookup in a project's frontend code embedded in .html files — a JS function (inline <script>) or a CSS rule (inline <style>, looked up by its full selector or by any bare class/id name it contains) — verbatim current source, plus (for JS) who calls it and what it calls. Use when you already know the function name, selector, or class/id.",
     inputSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Exact function name to look up' },
+        name: { type: 'string', description: 'Exact function name, full CSS selector, or bare class/id name (no leading . or # required) to look up' },
         projectPath: { type: 'string', description: 'Absolute path to the project root (must have a .indexgraph index built via `indexgraph init`). Defaults to cwd.' },
       },
       required: ['name'],
@@ -23,7 +23,7 @@ const TOOLS = [
   },
   {
     name: 'indexgraph_explore',
-    description: "Keyword search over a project's frontend JS symbols (functions defined inline in <script> tags inside .html files) — ranks by name and body match, returns verbatim source + call edges for the top matches. Use for a fuzzy/natural-language question when you don't know the exact symbol name.",
+    description: "Keyword search over a project's frontend code embedded in .html files — JS functions (inline <script>) and CSS rules (inline <style>) — ranks by name and body match, returns verbatim source + call edges for the top matches. Use for a fuzzy/natural-language question when you don't know the exact symbol name or selector.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -38,7 +38,7 @@ const TOOLS = [
 function formatSymbol(s) {
   const lines = [];
   lines.push(`**${s.name}** (${s.kind}) — ${s.file}:${s.startLine}`);
-  lines.push('```javascript');
+  lines.push('```' + (s.kind.startsWith('css') ? 'css' : 'javascript'));
   lines.push(s.source);
   lines.push('```');
   if (s.callers.length) lines.push('Called by <- ' + s.callers.map(c => `${c.from} (${c.file})`).join(', '));
