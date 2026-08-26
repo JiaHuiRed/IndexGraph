@@ -1,5 +1,15 @@
 # IndexGraph 更新日志
 
+## 0.0.6（2026-08-26）
+
+### ✨ 新增
+
+- **索引独立 `.css` 文件，不再只有 `.html` 内联** — 起因：在 financialcost（Jinja2 SSR 项目，样式全在 `app/static/style.css` 独立文件里）上实际使用发现盲区：CodeGraph 不支持 CSS，IndexGraph 又只认内联 `<style>`，独立样式表两边都不接，查样式规则只能退回 grep。这次收进来：`lib/index-store.js` 的 `findHtmlFiles()` 改名 `findIndexableFiles()` 并同时收 `.html`/`.css`；`buildIndex()` 对 `.css` 走专门分支——整个文件就是一个 style block（startLine=1），直接复用 0.0.5 的 `parseCssBlock()`，没有新解析器；`isStale()` 对新建 `.css` 文件的过期探测同步覆盖；`bin/indexgraph.js` 的 init 输出与 usage、MCP 两个工具的 description 同步更新。实测 financialcost：`style.css` 单文件入库 248 条 CSS 规则；`explore "backdrop-filter"` 第 1 名就是 `.topbar`（此前该查询只能命中一个凑数的 JS 函数）；`node topbar` 同时命中基础规则与 `@media (max-width:900px)` 内的展开规则，行号正确；JS 精确查询无回归。
+- **explore 排序按命中次数计分、模板构建函数降权、调用图传播加分；node 支持调用链深度；explore 结果紧凑化**（d116417，8/5 完成，攒到本版一起记录）— `explore()` 打分从"是否包含"改为 `countHits()` 按出现次数计数（正文里提查询词 5 次的函数远比顺带提一次的相关），单词封顶 `MAX_WORD_HITS=5` 防超长文件刷分；CJK bigram 只按去重个数计分（`MAX_UNIQUE_BIGRAMS=4`），因为模板循环会把同一个按钮文案重复几十遍；名字带 render/build/xxxHtml 的模板构建函数正文降权 0.3 倍（它们的 body 内嵌整页按钮文案和提示，会"提到"所有功能关键词）；命中符号的调用者按被调用者得分的 0.2 倍传播加分（wrapper 是相关功能真正的入口表面）。`indexgraph_node` 新增 `depth` 参数（1–3）收集多级 callers/callees，扁平列表带 `level` 字段标跳数，MCP 输出按层渲染成 `Called by (1) <- A, B; (2) <- C` 保持可读。explore 每符号返回源码从全量改为 800 字符签名前缀（探索只需要形状，完整源码走 `indexgraph_node`）。
+
+### 🐛 修复
+
+- **explore 孤证凑数：低相关结果伪装成命中误导 agent** — financialcost 上实测：查询 `"backdrop-filter"` 时全项目唯一的 JS 命中是一个恰好叫 `filterWrap` 的局部变量（1 次 BODY_WORD 得分），却被当作 top 结果返回——agent 看到"有结果"会以为找到了相关代码，比诚实说"没找到"有害得多。修复：给 `explore()` 加相关性地板——符号名零命中的前提下，正文佐证不足两次（两个不同词、一词多次提及、或两个不同 CJK bigram）的直接不进结果池；过滤后为空时 CLI/MCP 走既有的 `No matches for "..."` 文案。已知残余：同名变量恰好出现两次仍会溜过地板（如 `filterWrap` 声明+使用各一次），以及 `close()` 这类 body 里只提一次 `modal` 变量名的真命中会被误砍——精确查询 `indexgraph_node close` 不受影响，换词重查可补救；为个案把地板降到 1 等于不改、提到 3 会误杀 CJK bigram 场景的真实命中，权衡后维持 2。回归验证：英文自然语言问句第 1 名仍是正确目标函数（0.0.4 行为保持）、`"BOM 编辑 弹窗"` 命中 `.bom-edit-modal`、项目里不存在的内容（`毛玻璃`）诚实返回空。
 ## 0.0.5（2026-07-28）
 
 ### ✨ 新增

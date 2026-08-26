@@ -1,6 +1,6 @@
 {
   "name": "indexgraph",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "CodeGraph-style local code graph for frontend logic embedded in HTML <script>/<style> blocks — CLI + MCP server",
   "main": "lib/index-store.js",
   "bin": {
