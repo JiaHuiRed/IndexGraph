@@ -1,6 +1,6 @@
 # IndexGraph — 前端代码图谱
 
-> _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks._
+> _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks, plus standalone `.css` stylesheets._
 
 [![Version](https://badgen.net/badge/版本/0.0.6/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
@@ -15,8 +15,8 @@
 - **调用关系图** — 谁调用了谁，一次查询就有调用者 + 被调用者列表
 - **CSS 规则索引** — 提取内联 `<style>` 与独立 `.css` 文件里的规则，按完整选择器索引，也能直接用裸的 class/id 名查（比如 `group-hdr` 能找到 `table.rec-table th.group-hdr`）；`@media`/`@supports` 会递归展开成内部选择器各自独立可查，`@keyframes`/`@font-face` 这类整体当一个符号（内部不是选择器列表，拆了也没意义）
 - **精确查询** — `indexgraph node <name>`：已知函数名/选择器/class/id 时，一次拿到源码（+ JS 的调用链）
-- **模糊探索** — `indexgraph explore "<关键词>"`：不知道确切名字时，按名称 / 正文匹配打分排序，JS 函数和 CSS 规则一起参与排序
-- **MCP server** — 接入 Claude Code 等 agent，作为 `indexgraph_node` / `indexgraph_explore` 工具直接调用
+- **模糊探索** — `indexgraph explore "<关键词>"`：不知道确切名字时，按名称 / 正文匹配打分排序，JS 函数和 CSS 规则一起参与排序；孤证单提及的低分结果直接丢弃——没有真命中就诚实返回空，不拿凑数结果误导
+- **MCP server** — 接入 Claude Code 等 agent，作为 `indexgraph_node` / `indexgraph_explore` 工具直接调用（`indexgraph_node` 支持 `depth` 参数收集 1–3 级调用链）
 - 源码永远现读现取（不是缓存），跟 Read 工具看到的内容逐字节一致
 - **索引过期自动重建** — 查询前按文件 mtime 检测是否有改动，过期就透明重建，不用记得手动重跑 `indexgraph init`
 
