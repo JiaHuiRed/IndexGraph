@@ -11,7 +11,7 @@ const server = new Server({ name: 'indexgraph', version: require('./package.json
 const TOOLS = [
   {
     name: 'indexgraph_node',
-    description: "Exact symbol lookup in a project's frontend code embedded in .html files — a JS function (inline <script>) or a CSS rule (inline <style>, looked up by its full selector or by any bare class/id name it contains) — verbatim current source, plus (for JS) who calls it and what it calls. Use when you already know the function name, selector, or class/id.",
+    description: "Exact symbol lookup in a project's frontend code embedded in .html files (inline <script>/<style>) or in standalone .css files — a JS function or a CSS rule (looked up by its full selector or by any bare class/id name it contains) — verbatim current source, plus (for JS) who calls it and what it calls. Use when you already know the function name, selector, or class/id.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -24,7 +24,7 @@ const TOOLS = [
   },
   {
     name: 'indexgraph_explore',
-    description: "Keyword search over a project's frontend code embedded in .html files — JS functions (inline <script>) and CSS rules (inline <style>) — ranks by name and body match (name hits > body hits, longer functions normalized), returns source prefix + call edges for the top matches. Use for a fuzzy/natural-language question when you don't know the exact symbol name or selector.",
+    description: "Keyword search over a project's frontend code embedded in .html files (inline <script>/<style>) and in standalone .css files — JS functions and CSS rules — ranks by name and body match (name hits > body hits, longer functions normalized), returns source prefix + call edges for the top matches. Use for a fuzzy/natural-language question when you don't know the exact symbol name or selector.",
     inputSchema: {
       type: 'object',
       properties: {

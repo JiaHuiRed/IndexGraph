@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 const path = require('path');
-const { buildIndex, saveIndex, loadIndex, findHtmlFiles, ensureFresh } = require('../lib/index-store');
+const { buildIndex, saveIndex, loadIndex, findIndexableFiles, ensureFresh } = require('../lib/index-store');
 const { nodeInfo, explore, allSymbols } = require('../lib/query');
 const pkg = require('../package.json');
 
@@ -36,15 +36,15 @@ function main() {
 
   if (cmd === 'init') {
     const target = rest[0] ? path.resolve(rest[0]) : root;
-    const htmlFiles = findHtmlFiles(target);
-    console.log(`Scanning ${target} — ${htmlFiles.length} .html file(s) found`);
+    const srcFiles = findIndexableFiles(target);
+    console.log(`Scanning ${target} — ${srcFiles.length} .html/.css file(s) found`);
     const index = buildIndex(target);
     saveIndex(target, index);
     const fileCount = Object.keys(index.files).length;
     const allSyms = Object.values(index.files).flatMap(f => f.symbols);
     const cssCount = allSyms.filter(s => s.kind.startsWith('css')).length;
     const edgeCount = Object.values(index.files).reduce((n, f) => n + f.edges.length, 0);
-    console.log(`Indexed ${fileCount} file(s) with inline <script>/<style> — ${allSyms.length} symbols (${cssCount} CSS rules), ${edgeCount} call edges`);
+    console.log(`Indexed ${fileCount} file(s) (.html inline blocks + standalone .css) — ${allSyms.length} symbols (${cssCount} CSS rules), ${edgeCount} call edges`);
     return;
   }
 
@@ -80,7 +80,7 @@ function main() {
   console.log(`indexgraph v${pkg.version} — frontend (HTML <script>/<style>) code graph, CodeGraph-style
 
 Usage:
-  indexgraph init [path]        Scan for .html files, extract inline <script>/<style>, build the index
+  indexgraph init [path]        Scan .html/.css files, extract inline <script>/<style>, build the index
   indexgraph files              List indexed files and symbol counts
   indexgraph node <name>        Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
   indexgraph explore "<query>"  Keyword search across symbol names / bodies
