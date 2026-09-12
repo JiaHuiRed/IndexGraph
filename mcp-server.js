@@ -5,7 +5,9 @@ const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const { loadIndex, ensureFresh } = require('./lib/index-store');
 const { nodeInfo, explore } = require('./lib/query');
+const { getTypeInfo } = require('./lib/ts-type-info');
 
+const MAX_ERROR_CHARS = 2048;
 const server = new Server({ name: 'indexgraph', version: require('./package.json').version }, { capabilities: { tools: {} } });
 
 const TOOLS = [
@@ -33,6 +35,20 @@ const TOOLS = [
         limit: { type: 'number', minimum: 1, maximum: 10, default: 5, description: 'Max number of top matches to return.' },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'indexgraph_type_info',
+    description: "TypeScript/JavaScript semantic hover lookup — returns the inferred type and documentation at an exact file position, like VS Code. Use for generic, union, overload, and API-signature questions; this does not require an .indexgraph index.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', description: 'TypeScript or JavaScript file, relative to projectPath or absolute' },
+        line: { type: 'number', minimum: 1, description: '1-based line number' },
+        column: { type: 'number', minimum: 1, description: '1-based column number' },
+        projectPath: { type: 'string', description: 'Absolute project root containing tsconfig.json; defaults to cwd' },
+      },
+      required: ['file', 'line', 'column'],
     },
   },
 ];
@@ -71,6 +87,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
   const root = args.projectPath || process.cwd();
+  if (name === 'indexgraph_type_info') {
+    try {
+      return { content: [{ type: 'text', text: JSON.stringify(getTypeInfo(args)) }] };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const suffix = '\n... (truncated)';
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: message.length <= MAX_ERROR_CHARS
+              ? message
+              : `${message.slice(0, MAX_ERROR_CHARS - suffix.length)}${suffix}`,
+          }),
+        }],
+      };
+    }
+  }
+
   if (!loadIndex(root)) {
     return { content: [{ type: 'text', text: `No .indexgraph index found at ${root} — run "indexgraph init" in that project first.` }] };
   }

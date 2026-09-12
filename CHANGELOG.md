@@ -1,5 +1,12 @@
 # IndexGraph 更新日志
 
+## 0.0.7（2026-09-12）
+
+### ✨ 新增
+
+- **TypeScript/JavaScript 语义类型查询** — 新增 `indexgraph_type_info` MCP 工具，按文件、行号和列号返回指定位置的推断类型、符号种类与文档，覆盖泛型、联合类型、重载和 API 签名问题；不要求目标项目先建立 `.indexgraph` 索引。
+- **按需接入 TypeScript language service** — 优先使用目标项目的 TypeScript，缺少语义服务时回退到 IndexGraph 自带的 TypeScript 5.9.3；只以请求文件作为程序入口，按项目复用服务并按源文件版本刷新，返回字段限制 2048 字符，避免大项目和重复查询拖垮 MCP 进程。
+
 ## 0.0.6（2026-08-26）
 
 ### ✨ 新增
