@@ -5,7 +5,7 @@
 [![Version](https://badgen.net/badge/版本/0.0.7/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
-**IndexGraph** 是 [CodeGraph](https://github.com/colbymchenry/codegraph) 的补充——专门吃它吃不下的那块：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表。100% 本地，不上传任何代码。
+**IndexGraph**s是一个简单的前端代码搜索工具，用来在特定情况下降本增效：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表。100% 本地，不上传任何代码。
 
 ---
 
@@ -82,7 +82,7 @@ indexgraph explore "对账单附件怎么渲染的"
 
 ## 🙏 致谢
 
-设计理念上借鉴了 [CodeGraph](https://github.com/colbymchenry/codegraph)——`node`/`explore` 两个命令的分工、MCP 包一层的做法、"源码永远现读、不用缓存"这几个思路都来自它。IndexGraph 是从零实现的（没有读过 CodeGraph 的源码，它是编译发布的闭源分发包），定位是补上它不支持 `.html` 内联 `<script>` 的那块空白，不是它的替代品。
+设计理念上借鉴了 [CodeGraph](https://github.com/colbymchenry/codegraph)——`node`/`explore` 两个命令的分工、MCP 包一层的做法、"源码永远现读、不用缓存"这几个思路都来自它。
 
 ---
 
