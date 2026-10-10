@@ -2,7 +2,7 @@
 
 > _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks, plus standalone `.css` stylesheets._
 
-[![Version](https://badgen.net/badge/版本/0.0.8/blue)](CHANGELOG.md)
+[![Version](https://badgen.net/badge/版本/0.0.9/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
 **IndexGraph**s是一个简单的前端代码搜索工具，用来在特定情况下降本增效：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表。100% 本地，不上传任何代码。
@@ -18,7 +18,7 @@
 - **模糊探索** — `indexgraph explore "<关键词>"`：不知道确切名字时，按名称 / 正文匹配打分排序，JS 函数和 CSS 规则一起参与排序；孤证单提及的低分结果直接丢弃——没有真命中就诚实返回空，不拿凑数结果误导
 - **MCP server** — 接入 Claude Code 等 agent，作为 `indexgraph_node` / `indexgraph_explore` / `indexgraph_type_info` 工具直接调用；前两个查前端代码图，后一个返回 TypeScript/JavaScript 文件指定位置的语义类型和文档（不要求 `.indexgraph`，`indexgraph_node` 支持 `depth` 参数收集 1–3 级调用链，另有 `file`/`maxResults`/`mode:"summary"` 用于同名符号消歧与输出预算控制）
 - 源码永远现读现取（不是缓存），跟 Read 工具看到的内容逐字节一致
-- **索引过期自动重建** — 查询前按文件 mtime/size 检测是否有改动，过期就透明重建，不用记得手动重跑 `indexgraph init`；已改动文件走增量更新（只重解析变化的那几个文件），零符号文件也登记在册、热查询零重新解析；项目整体复制/搬迁后索引自动指向当前根目录，不会误读旧路径的代码
+- **索引过期自动重建** — 查询前按文件 mtime/size 检测是否有改动，过期就透明重建，不用记得手动重跑 `indexgraph init`；已改动文件走增量更新（只重解析变化的那几个文件），零符号文件也登记在册、热查询零重新解析；项目整体复制/搬迁、索引文件损坏时同样自动重建并指向当前根目录，不会误读旧路径或坏缓存；只有**从未建过索引**的项目才提示先 `init`
 
 ---
 

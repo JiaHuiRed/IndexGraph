@@ -3,7 +3,7 @@
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
-const { loadIndex, ensureFresh } = require('./lib/index-store');
+const { loadIndex, ensureFresh, indexFileState } = require('./lib/index-store');
 const { nodeInfo, explore } = require('./lib/query');
 const { getTypeInfo } = require('./lib/ts-type-info');
 
@@ -113,7 +113,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
   }
 
-  if (!loadIndex(root)) {
+  // Only a genuinely MISSING index file asks for init; an existing but
+  // corrupt/incompatible one goes through ensureFresh and self-heals
+  // (IG08-F01 — the old loadIndex() pre-check turned corrupt into "not found").
+  if (indexFileState(root) === 'missing') {
     return { content: [{ type: 'text', text: `No .indexgraph index found at ${root} — run "indexgraph init" in that project first.` }] };
   }
   const index = ensureFresh(root); // transparently rebuilds if any indexed file changed since last build

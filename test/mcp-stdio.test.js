@@ -43,6 +43,80 @@ function rpc(t, root) {
   });
 }
 
+// ── IG08-F01：损坏索引必须经真实 stdio 路径自愈 ───────────────────────────
+const fs = require('fs');
+const INDEX_JSON = p => path.join(p, '.indexgraph', 'index.json');
+const HEALTHY = '<script>\nfunction healthy(){ return 1; }\n</script>';
+
+async function initialize(call) {
+  await call('initialize', {
+    protocolVersion: '2024-11-05',
+    capabilities: {},
+    clientInfo: { name: 'ig-test', version: '0.0.0' },
+  });
+}
+
+test('F01 MCP: corrupt index self-heals through the real stdio path', async (t) => {
+  const root = makeProject(t, { 'index.html': HEALTHY });
+  require('../lib/index-store').ensureFresh(root); // healthy index first
+  fs.writeFileSync(INDEX_JSON(root), '{ "schemaVersion": 2, "files": {'); // then corrupt it
+  const call = rpc(t, root);
+  await initialize(call);
+
+  const node = await call('tools/call', {
+    name: 'indexgraph_node',
+    arguments: { name: 'healthy', projectPath: root },
+  });
+  const text = node.result.content[0].text;
+  assert.match(text, /healthy/, 'corrupt index must self-heal, not report "run init"');
+  assert.doesNotMatch(text, /run "indexgraph init"/);
+  // index.json repaired to valid current-schema JSON
+  const repaired = JSON.parse(fs.readFileSync(INDEX_JSON(root), 'utf-8'));
+  assert.equal(repaired.schemaVersion, 2);
+});
+
+test('F01 MCP: missing index still asks for init (no silent first-build)', async (t) => {
+  const root = makeProject(t, { 'index.html': HEALTHY });
+  const call = rpc(t, root);
+  await initialize(call);
+
+  const node = await call('tools/call', {
+    name: 'indexgraph_node',
+    arguments: { name: 'healthy', projectPath: root },
+  });
+  assert.match(node.result.content[0].text, /run "indexgraph init"/);
+  assert.ok(!fs.existsSync(INDEX_JSON(root)), 'must not silently build an index');
+});
+
+test('F02 MCP: symbols from blocks after a broken one still come back over stdio', async (t) => {
+  const root = makeProject(t, {
+    'page.html': `<script>
+  const broken = ;
+</script>
+<script>
+  function healthyAfterError() { return 42; }
+</script>
+<style>
+  .healthy-style { color: red; }
+</style>`,
+  });
+  require('../lib/index-store').ensureFresh(root);
+  const call = rpc(t, root);
+  await initialize(call);
+
+  const fn = await call('tools/call', {
+    name: 'indexgraph_node',
+    arguments: { name: 'healthyAfterError', projectPath: root },
+  });
+  assert.match(fn.result.content[0].text, /healthyAfterError/);
+
+  const css = await call('tools/call', {
+    name: 'indexgraph_node',
+    arguments: { name: 'healthy-style', projectPath: root },
+  });
+  assert.match(css.result.content[0].text, /healthy-style/);
+});
+
 test('T10: initialize + list tools + node/explore/type_info round-trip', async (t) => {
   const root = makeProject(t, {
     'page.html': '<script>\nfunction probeAlpha(){ return 1; }\nfunction probeBeta(){ probeAlpha(); }\n</script>',

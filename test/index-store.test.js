@@ -127,3 +127,61 @@ test('T07c: missing index loads as null', (t) => {
   const root = makeProject(t, {});
   assert.equal(store.loadIndex(root), null, 'no index file → null');
 });
+
+// ── IG08-F02：坏块不能带走后续好块 ────────────────────────────────────────
+test('F02: broken script block does not take later script/style blocks down', (t) => {
+  const root = makeProject(t, {
+    'page.html': `<script>
+  const broken = ; // 故意非法的 JS 语法
+</script>
+<script>
+  function healthyAfterError() { return 42; }
+</script>
+<style>
+  .healthy-style { color: red; }
+</style>`,
+  });
+  const index = store.buildIndex(root);
+  const entry = index.files['page.html'];
+  assert.ok(entry.symbols.some(s => s.name === 'healthyAfterError'),
+    'good script after a broken one must still be indexed');
+  assert.ok(entry.symbols.some(s => (s.aliases || []).includes('healthy-style')),
+    'good style after a broken script must still be indexed');
+  assert.ok(entry.parseError, 'the broken block must still be reported');
+  assert.match(entry.parseError, /script@/, 'parseError must name the failing block');
+});
+
+test('F02: symbols before AND after a broken block both survive', (t) => {
+  const root = makeProject(t, {
+    'page.html': `<script>
+  function beforeBad() { return 1; }
+</script>
+<script>
+  const broken = ;
+</script>
+<script>
+  function afterBad() { return 2; }
+</script>`,
+  });
+  const index = store.buildIndex(root);
+  const names = index.files['page.html'].symbols.map(s => s.name);
+  assert.ok(names.includes('beforeBad'), 'symbol before the broken block survives');
+  assert.ok(names.includes('afterBad'), 'symbol after the broken block survives');
+  assert.ok(index.files['page.html'].parseError);
+});
+
+test('F02: fixing the broken block clears the error and indexes new symbols', (t) => {
+  const root = makeProject(t, {
+    'page.html': '<script>\n  const broken = ;\n</script>\n<script>\n  function healthyAfterError() { return 42; }\n</script>',
+  });
+  const first = store.ensureFresh(root);
+  assert.ok(first.files['page.html'].parseError, 'broken state recorded');
+
+  fs.writeFileSync(path.join(root, 'page.html'),
+    '<script>\n  const fixed = 1;\n</script>\n<script>\n  function healthyAfterError() { return 42; }\n  function addedLater() { return 3; }\n</script>');
+  const fresh = store.ensureFresh(root); // incremental reparse of page.html
+  assert.ok(!fresh.files['page.html'].parseError, 'error clears once the file is fixed');
+  const names = fresh.files['page.html'].symbols.map(s => s.name);
+  assert.ok(names.includes('healthyAfterError') && names.includes('addedLater'),
+    'fixed file re-indexes both symbols');
+});

@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 'use strict';
 const path = require('path');
-const { buildIndex, saveIndex, loadIndex, findIndexableFiles, ensureFresh } = require('../lib/index-store');
+const { buildIndex, saveIndex, findIndexableFiles, ensureFresh, indexFileState } = require('../lib/index-store');
 const { nodeInfo, explore, allSymbols } = require('../lib/query');
 const pkg = require('../package.json');
 
 function requireIndex(root) {
-  const before = loadIndex(root);
-  if (!before) {
+  // Only a genuinely MISSING index file asks for init; an existing but
+  // corrupt/incompatible one goes through ensureFresh and self-heals
+  // (IG08-F01 — the old loadIndex() pre-check turned corrupt into "not found").
+  if (indexFileState(root) === 'missing') {
     console.error(`[ERR] no .indexgraph index found in ${root} — run "indexgraph init" first`);
     process.exit(1);
   }
@@ -67,8 +69,9 @@ function main() {
     const index = requireIndex(root);
     // Optional second arg: a file filter to disambiguate same-name symbols.
     const fileArg = rest[1];
-    const { matches, omitted } = nodeInfo(index, name, 1, fileArg ? { file: fileArg } : {});
-    if (!matches) { console.log(`Symbol "${name}" not found in the index`); return; }
+    const result = nodeInfo(index, name, 1, fileArg ? { file: fileArg } : {});
+    if (!result) { console.log(`Symbol "${name}" not found in the index`); return; }
+    const { matches, omitted } = result;
     matches.forEach(printSymbolBlock);
     if (omitted.length) {
       console.log(`\n(+${omitted.length} more same-name match(es) omitted — re-run with the file argument: ` +
