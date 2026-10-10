@@ -22,7 +22,12 @@ function printSymbolBlock(s) {
   console.log(s.source);
   console.log('```');
   if (s.callers.length) console.log('Called by ← ' + s.callers.map(c => `${c.from} (${c.file})`).join(', '));
-  if (s.callees.length) console.log('Calls    → ' + s.callees.map(c => `${c.to} (${c.file})`).join(', '));
+  if (s.callees.length) {
+    // Unresolved cross-file candidates get a trailing `?` — never a certain edge.
+    const callees = s.callees.map(c => `${c.unresolved ? c.to + '?' : c.to} (${c.file})`).join(', ');
+    const more = s.calleesTruncated ? ' …(+more)' : '';
+    console.log('Calls    → ' + callees + more);
+  }
 }
 
 function main() {
@@ -58,11 +63,17 @@ function main() {
 
   if (cmd === 'node') {
     const name = rest[0];
-    if (!name) { console.error('usage: indexgraph node <symbolName>'); process.exit(1); }
+    if (!name) { console.error('usage: indexgraph node <symbolName> [file]'); process.exit(1); }
     const index = requireIndex(root);
-    const matches = nodeInfo(index, name);
+    // Optional second arg: a file filter to disambiguate same-name symbols.
+    const fileArg = rest[1];
+    const { matches, omitted } = nodeInfo(index, name, 1, fileArg ? { file: fileArg } : {});
     if (!matches) { console.log(`Symbol "${name}" not found in the index`); return; }
     matches.forEach(printSymbolBlock);
+    if (omitted.length) {
+      console.log(`\n(+${omitted.length} more same-name match(es) omitted — re-run with the file argument: ` +
+        omitted.map(o => `${o.file}:${o.startLine}`).join(', ') + ')');
+    }
     return;
   }
 
@@ -82,7 +93,7 @@ function main() {
 Usage:
   indexgraph init [path]        Scan .html/.css files, extract inline <script>/<style>, build the index
   indexgraph files              List indexed files and symbol counts
-  indexgraph node <name>        Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
+  indexgraph node <name> [file]  Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
   indexgraph explore "<query>"  Keyword search across symbol names / bodies
   indexgraph version            Print version
 `);

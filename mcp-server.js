@@ -20,6 +20,9 @@ const TOOLS = [
         name: { type: 'string', description: 'Exact function name, full CSS selector, or bare class/id name (no leading . or # required) to look up' },
         projectPath: { type: 'string', description: 'Absolute path to the project root (must have a .indexgraph index built via `indexgraph init`). Defaults to cwd.' },
         depth: { type: 'number', minimum: 1, maximum: 3, default: 1, description: 'How many hops of callers/callees to collect. 1 = direct callers/callees only. 2-3 adds indirect (transitive) relationships, flattened with a level field.' },
+        file: { type: 'string', description: 'Optional: restrict matches to this file (relative to project root, or absolute) — disambiguates same-name symbols.' },
+        maxResults: { type: 'number', minimum: 1, description: 'Optional: cap how many same-name matches to return.' },
+        mode: { type: 'string', enum: ['detail', 'summary'], default: 'detail', description: 'detail = full symbol source (default); summary = short source prefix plus location and call edges, for disambiguating many same-name matches cheaply.' },
       },
       required: ['name'],
     },
@@ -62,7 +65,10 @@ function formatEdgeList(edges) {
   for (const e of edges) {
     const lvl = e.level || 1; // depth=1 edges ({file, from}) carry no level field
     if (!byLevel.has(lvl)) byLevel.set(lvl, []);
-    byLevel.get(lvl).push(e.name || (e.from || e.to));
+    // Unresolved candidates (cross-file calls parseBlock couldn't bind to one
+    // specific symbol) get a trailing `?` — never read as a certain edge.
+    const label = e.unresolved ? `${e.to}?` : (e.name || e.from || e.to);
+    byLevel.get(lvl).push(label);
   }
   const parts = [];
   for (const [lvl, names] of [...byLevel.entries()].sort((a, b) => a[0] - b[0])) {
@@ -73,7 +79,8 @@ function formatEdgeList(edges) {
 
 function formatSymbol(s) {
   const lines = [];
-  lines.push(`**${s.name}** (${s.kind}) — ${s.file}:${s.startLine}`);
+  const viaGraph = s.matchReason === 'graph' ? ' ~via call graph' : '';
+  lines.push(`**${s.name}** (${s.kind}) — ${s.file}:${s.startLine}${viaGraph}`);
   lines.push('```' + (s.kind.startsWith('css') ? 'css' : 'javascript'));
   lines.push(s.source);
   lines.push('```');
@@ -112,9 +119,20 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const index = ensureFresh(root); // transparently rebuilds if any indexed file changed since last build
 
   if (name === 'indexgraph_node') {
-    const matches = nodeInfo(index, args.name, args.depth || 1);
-    if (!matches) return { content: [{ type: 'text', text: `Symbol "${args.name}" not found.` }] };
-    return { content: [{ type: 'text', text: matches.map(formatSymbol).join('\n\n') }] };
+    const result = nodeInfo(index, args.name, args.depth || 1, {
+      file: args.file,
+      maxResults: args.maxResults,
+      mode: args.mode,
+    });
+    if (!result) return { content: [{ type: 'text', text: `Symbol "${args.name}" not found.` }] };
+    const { matches, omitted } = result;
+    let text = matches.map(formatSymbol).join('\n\n');
+    if (omitted.length) {
+      text += `\n\n${omitted.length} more same-name match(es) omitted (response budget) — ` +
+        omitted.map(o => `${o.file}:${o.startLine}`).join(', ') +
+        `. Re-query with file/maxResults to fetch them.`;
+    }
+    return { content: [{ type: 'text', text }] };
   }
 
   if (name === 'indexgraph_explore') {
