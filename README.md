@@ -2,7 +2,7 @@
 
 > _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks, plus standalone `.css` stylesheets._
 
-[![Version](https://badgen.net/badge/版本/0.0.9/blue)](CHANGELOG.md)
+[![Version](https://badgen.net/badge/版本/0.0.10/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
 **IndexGraph**s是一个简单的前端代码搜索工具，用来在特定情况下降本增效：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表。100% 本地，不上传任何代码。
