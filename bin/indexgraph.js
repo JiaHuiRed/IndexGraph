@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 const path = require('path');
-const { buildIndex, saveIndex, findIndexableFiles, ensureFresh, indexFileState } = require('../lib/index-store');
+const fs = require('fs');
+const { buildIndex, saveIndex, findIndexableFiles, ensureFresh, indexFileState, savedIndexPath } = require('../lib/index-store');
 const { nodeInfo, explore, allSymbols } = require('../lib/query');
 const pkg = require('../package.json');
 
@@ -57,9 +58,44 @@ function main() {
 
   if (cmd === 'files') {
     const index = requireIndex(root);
-    for (const [file, data] of Object.entries(index.files)) {
+    // Largest files first — on a many-file project this is the useful order.
+    const rows = Object.entries(index.files)
+      .sort((a, b) => b[1].symbols.length - a[1].symbols.length || a[0].localeCompare(b[0]));
+    for (const [file, data] of rows) {
       console.log(`${file}  (${data.symbols.length} symbols, ${data.edges.length} edges)`);
     }
+    return;
+  }
+
+  // Human-readable summary of the on-disk index. index.json is a compact
+  // machine format (single line by design) — this is the inspection entry point.
+  if (cmd === 'stats') {
+    const index = requireIndex(root);
+    const files = Object.entries(index.files);
+    const symbols = files.flatMap(([, data]) => data.symbols);
+    const edges = files.reduce((n, [, data]) => n + data.edges.length, 0);
+    const kinds = symbols.reduce((acc, s) => {
+      acc[s.kind] = (acc[s.kind] || 0) + 1;
+      return acc;
+    }, {});
+    const css = files.filter(([file]) => file.toLowerCase().endsWith('.css')).length;
+    console.log(`Index graph — ${index.root}`);
+    console.log(`  schema:  ${index.schemaVersion}`);
+    console.log(`  built:   ${new Date(index.builtAt).toLocaleString()}`);
+    console.log(`  files:   ${files.length} (${files.length - css} .html, ${css} .css)`);
+    console.log(`  symbols: ${symbols.length}`);
+    for (const [kind, n] of Object.entries(kinds).sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${kind}: ${n}`);
+    }
+    console.log(`  edges:   ${edges}`);
+    console.log(`  on disk: ${(fs.statSync(savedIndexPath(root)).size / 1024).toFixed(1)} KB (.indexgraph/index.json, compact)`);
+    return;
+  }
+
+  // Raw inspection: the exact object the query side reads, pretty-printed.
+  // Redirect it to a file when you actually want to browse the whole thing.
+  if (cmd === 'dump') {
+    console.log(JSON.stringify(requireIndex(root), null, 2));
     return;
   }
 
@@ -95,7 +131,9 @@ function main() {
 
 Usage:
   indexgraph init [path]        Scan .html/.css files, extract inline <script>/<style>, build the index
-  indexgraph files              List indexed files and symbol counts
+  indexgraph files              List indexed files and symbol counts (largest first)
+  indexgraph stats              Summarize the index: files, symbols by kind, edges, on-disk size
+  indexgraph dump               Print the raw index as pretty JSON (redirect to a file to browse)
   indexgraph node <name> [file]  Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
   indexgraph explore "<query>"  Keyword search across symbol names / bodies
   indexgraph version            Print version
