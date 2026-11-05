@@ -2,7 +2,7 @@
 
 > _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks, plus standalone `.css` stylesheets._
 
-[![Version](https://badgen.net/badge/版本/0.0.10/blue)](CHANGELOG.md)
+[![Version](https://badgen.net/badge/版本/0.0.11/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
 **IndexGraph**s是一个简单的前端代码搜索工具，用来在特定情况下降本增效：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表。100% 本地，不上传任何代码。
@@ -47,10 +47,14 @@ indexgraph explore "对账单附件怎么渲染的"
 | 命令 | 作用 |
 |------|------|
 | `indexgraph init [路径]` | 扫描 `.html`/`.css` 文件，提取内联 `<script>`/`<style>`，建立索引 |
-| `indexgraph files` | 列出已索引文件和符号数量 |
+| `indexgraph files` | 列出已索引文件和符号数量（按符号数从多到少） |
+| `indexgraph stats` | 索引摘要：文件/符号/边数量、按 kind 分布、索引文件体积 |
+| `indexgraph dump` | 把索引按缩进 JSON 输出到 stdout（重定向到文件后再浏览） |
 | `indexgraph node <name>` | 精确符号：源码 + 调用者 + 被调用者（函数名，或 CSS 选择器/class/id） |
 | `indexgraph explore "<query>"` | 关键词模糊搜索 |
 | `indexgraph version` | 打印版本号 |
+
+> `.indexgraph/index.json` 是**紧凑单行 JSON**——它给查询侧读，不是给人翻的。要看索引内容用 `indexgraph stats`（摘要）或 `indexgraph dump > index.pretty.json`（完整结构，缩进后浏览）。
 
 ## 🔌 接入 MCP（Claude Code 等）
 
