@@ -70,9 +70,9 @@ test('F01 MCP: corrupt index self-heals through the real stdio path', async (t) 
   const text = node.result.content[0].text;
   assert.match(text, /healthy/, 'corrupt index must self-heal, not report "run init"');
   assert.doesNotMatch(text, /run "indexgraph init"/);
-  // index.json repaired to valid current-schema JSON
+  // index.json repaired to valid current-schema JSON (v3 since UI Trace)
   const repaired = JSON.parse(fs.readFileSync(INDEX_JSON(root), 'utf-8'));
-  assert.equal(repaired.schemaVersion, 2);
+  assert.equal(repaired.schemaVersion, 3);
 });
 
 test('F01 MCP: missing index still asks for init (no silent first-build)', async (t) => {
@@ -136,7 +136,7 @@ test('T10: initialize + list tools + node/explore/type_info round-trip', async (
 
   const tools = await call('tools/list', {});
   const names = tools.result.tools.map(x => x.name);
-  assert.deepEqual(names, ['indexgraph_node', 'indexgraph_explore', 'indexgraph_type_info']);
+  assert.deepEqual(names, ['indexgraph_node', 'indexgraph_explore', 'indexgraph_type_info', 'indexgraph_trace']);
 
   const node = await call('tools/call', {
     name: 'indexgraph_node',
@@ -163,4 +163,22 @@ test('T10: initialize + list tools + node/explore/type_info round-trip', async (
     arguments: { name: 'doesNotExistAnywhere', projectPath: root },
   });
   assert.match(missing.result.content[0].text, /not found/);
+
+  // UI trace over the real stdio path: text clue → component + direct binding
+  const panel = `export function Panel() {
+  const handleGo = () => { boot(); }
+  function boot() {}
+  return <button className="go-btn" onClick={handleGo}>启动</button>;
+}
+`;
+  fs.writeFileSync(path.join(root, 'panel.tsx'), panel);
+  const traced = await call('tools/call', {
+    name: 'indexgraph_trace',
+    arguments: { text: '启动', projectPath: root },
+  });
+  const traceText = traced.result.content[0].text;
+  assert.match(traceText, /go-btn/, 'element found by its visible text');
+  assert.match(traceText, /Panel/, 'declaring component surfaced');
+  assert.match(traceText, /direct binding/, 'evidence label present');
+  assert.match(traceText, /handleGo/, 'bound handler named');
 });

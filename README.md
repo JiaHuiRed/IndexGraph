@@ -1,24 +1,26 @@
 # IndexGraph — 前端代码图谱
 
-> _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks, plus standalone `.css` stylesheets._
+> _A local code graph for frontend logic embedded in HTML `<script>`/`<style>` blocks, standalone `.css` stylesheets, and `.tsx`/`.jsx`/`.vue` components — trace a UI element back to its implementation._
 
-[![Version](https://badgen.net/badge/版本/0.0.11/blue)](CHANGELOG.md)
+[![Version](https://badgen.net/badge/版本/0.1.0/blue)](CHANGELOG.md)
 [![License](https://badgen.net/badge/license/MIT/green)](LICENSE)
 
-**IndexGraph**s是一个简单的前端代码搜索工具，用来在特定情况下降本增效：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表。100% 本地，不上传任何代码。
+**IndexGraph**s是一个简单的前端代码搜索工具，用来在特定情况下降本增效：写在 `.html` 文件里 `<script>`/`<style>` 标签内联的前端 JS 和 CSS，外加独立 `.css` 样式表，以及 `.tsx`/`.jsx`/`.vue` 前端组件文件。100% 本地，不上传任何代码。
 
 ---
 
 ## ✨ 特色
 
-- **函数级索引** — 提取内联 `<script>` 里的函数声明 / 箭头函数赋值，记录真实行号（映射回原始 `.html` 文件，不是提取后的偏移量）
+- **UI 追踪（`indexgraph trace`）** — 从「界面上看到的东西」反查实现代码：给按钮文案、CSS class、DOM id、组件名或选择器，返回声明组件、直接绑定的事件处理器、处理器的调用链，以及命中的 CSS 样式候选；每条关系都带证据标注（`direct binding` / `candidate` / `selector match`），动态表达式、运行时分支、跨文件同名歧义一律以候选呈现，不冒充确定边
+- **函数级索引** — 提取内联 `<script>`、`.tsx`/`.jsx` 组件与 Vue `<script setup>` 里的函数声明 / 箭头函数赋值，记录真实行号（映射回原始文件，不是提取后的偏移量）；大写开头且含 JSX 的函数识别为组件
 - **调用关系图** — 谁调用了谁，一次查询就有调用者 + 被调用者列表；每条边绑定到具体符号（`file#行:列` 身份），同名函数不串线，嵌套函数各自拥有自己的调用边
-- **CSS 规则索引** — 提取内联 `<style>` 与独立 `.css` 文件里的规则，按完整选择器索引，也能直接用裸的 class/id 名查（比如 `group-hdr` 能找到 `table.rec-table th.group-hdr`）；`@media`/`@supports` 会递归展开成内部选择器各自独立可查，`@keyframes`/`@font-face` 这类整体当一个符号（内部不是选择器列表，拆了也没意义）
+- **CSS 规则索引** — 提取内联 `<style>` 与独立 `.css` 文件里的规则（含 Vue `<style scoped>`），按完整选择器索引，也能直接用裸的 class/id 名查（比如 `group-hdr` 能找到 `table.rec-table th.group-hdr`）；`@media`/`@supports` 会递归展开成内部选择器各自独立可查，`@keyframes`/`@font-face` 这类整体当一个符号（内部不是选择器列表，拆了也没意义）
+- **UI 元素索引** — `.html`（parse5 真实解析）与组件文件里的每个标签都记录 tag、id、class、静态文本、常用提示属性（`aria-label`/`placeholder` 等）与事件绑定；HTML 里的 `<template>` 内容同样覆盖
 - **精确查询** — `indexgraph node <name>`：已知函数名/选择器/class/id 时，一次拿到源码（+ JS 的调用链）
 - **模糊探索** — `indexgraph explore "<关键词>"`：不知道确切名字时，按名称 / 正文匹配打分排序，JS 函数和 CSS 规则一起参与排序；孤证单提及的低分结果直接丢弃——没有真命中就诚实返回空，不拿凑数结果误导
-- **MCP server** — 接入 Claude Code 等 agent，作为 `indexgraph_node` / `indexgraph_explore` / `indexgraph_type_info` 工具直接调用；前两个查前端代码图，后一个返回 TypeScript/JavaScript 文件指定位置的语义类型和文档（不要求 `.indexgraph`，`indexgraph_node` 支持 `depth` 参数收集 1–3 级调用链，另有 `file`/`maxResults`/`mode:"summary"` 用于同名符号消歧与输出预算控制）
+- **MCP server** — 接入 Claude Code 等 agent，作为 `indexgraph_node` / `indexgraph_explore` / `indexgraph_trace` / `indexgraph_type_info` 工具直接调用；前三个查前端代码图（trace 即 UI 追踪），最后一个返回 TypeScript/JavaScript 文件指定位置的语义类型和文档（不要求 `.indexgraph`，`indexgraph_node` 支持 `depth` 参数收集 1–3 级调用链，另有 `file`/`maxResults`/`mode:"summary"` 用于同名符号消歧与输出预算控制）
 - 源码永远现读现取（不是缓存），跟 Read 工具看到的内容逐字节一致
-- **索引过期自动重建** — 查询前按文件 mtime/size 检测是否有改动，过期就透明重建，不用记得手动重跑 `indexgraph init`；已改动文件走增量更新（只重解析变化的那几个文件），零符号文件也登记在册、热查询零重新解析；项目整体复制/搬迁、索引文件损坏时同样自动重建并指向当前根目录，不会误读旧路径或坏缓存；只有**从未建过索引**的项目才提示先 `init`
+- **索引过期自动重建** — 查询前按文件 mtime/size 检测是否有改动，过期就透明重建，不用记得手动重跑 `indexgraph init`；已改动文件走增量更新（只重解析变化的那几个文件），零符号文件也登记在册、热查询零重新解析；项目整体复制/搬迁、索引文件损坏、旧版本索引（v2 → v3 自动升级）时同样自动重建并指向当前根目录，不会误读旧路径或坏缓存；只有**从未建过索引**的项目才提示先 `init`
 
 ---
 
@@ -38,6 +40,10 @@ indexgraph init
 # 查询
 indexgraph node renderTable
 indexgraph explore "对账单附件怎么渲染的"
+
+# UI 追踪：从界面上看到的东西反查实现
+indexgraph trace --text "保存设置"
+indexgraph trace --class settings-save --depth 2
 ```
 
 ---
@@ -46,12 +52,13 @@ indexgraph explore "对账单附件怎么渲染的"
 
 | 命令 | 作用 |
 |------|------|
-| `indexgraph init [路径]` | 扫描 `.html`/`.css` 文件，提取内联 `<script>`/`<style>`，建立索引 |
+| `indexgraph init [路径]` | 扫描 `.html`/`.css`/`.tsx`/`.jsx`/`.vue` 文件，提取内联 `<script>`/`<style>`、组件符号与 UI 元素，建立索引 |
 | `indexgraph files` | 列出已索引文件和符号数量（按符号数从多到少） |
 | `indexgraph stats` | 索引摘要：文件/符号/边数量、按 kind 分布、索引文件体积 |
 | `indexgraph dump` | 把索引按缩进 JSON 输出到 stdout（重定向到文件后再浏览） |
 | `indexgraph node <name>` | 精确符号：源码 + 调用者 + 被调用者（函数名，或 CSS 选择器/class/id） |
 | `indexgraph explore "<query>"` | 关键词模糊搜索 |
+| `indexgraph trace` | UI 追踪：`--text "保存设置"` / `--class settings-save` / `--id save-btn` / `--component Panel` / `--selector "button.save"` / `--tag button`，可加 `--file` 消歧、`--limit`/`--depth` 控制输出 |
 | `indexgraph version` | 打印版本号 |
 
 > `.indexgraph/index.json` 是**紧凑单行 JSON**——它给查询侧读，不是给人翻的。要看索引内容用 `indexgraph stats`（摘要）或 `indexgraph dump > index.pretty.json`（完整结构，缩进后浏览）。
@@ -70,18 +77,20 @@ indexgraph explore "对账单附件怎么渲染的"
 }
 ```
 
-重启 agent 后即可使用 `indexgraph_node` / `indexgraph_explore` / `indexgraph_type_info` 三个工具。
+重启 agent 后即可使用 `indexgraph_node` / `indexgraph_explore` / `indexgraph_trace` / `indexgraph_type_info` 四个工具。`indexgraph_trace` 的典型用法：从 WebQA 等运行时观察工具拿到按钮文案/class，直接喂给 trace 拿到组件与事件绑定，再改代码验证——静态定位（IndexGraph）与运行时观察（WebQA）通过普通文本线索协作，互不依赖。
 
 ---
 
 ## ⚠️ 已知局限
 
-- 代码图索引只解析纯 JS（无 `src=` 属性的内联 `<script>`），不把 TS/JSX 纳入索引；TypeScript/JavaScript 的语义类型查询请使用 `indexgraph_type_info`
-- 调用关系按词法作用域链做近似解析（内层声明遮蔽外层）；动态派发、对象方法调用追踪不到。跨文件调用无法确定指向哪个同名符号，以"候选"语气标注（`calleeName?`）而不是伪装成确定边
-- `indexgraph_node` 有响应总预算（默认 24000 字符源码），超出的同名匹配降级为一行定位信息并附重新查询提示，不会无界返回
+- **UI 追踪是静态证据，不是运行时真相** — `direct binding` 只表示「静态可解析的引用」；点击后是否真的执行、动态 class 的最终取值、CSS cascade 谁赢，都不在承诺范围内（输出末尾有固定 caveat 提醒）。动态事件表达式（内联箭头函数等）和动态 class 以 `candidate` 呈现并保留表达式原文
+- 代码图索引内联 JS（HTML `<script>`）、`.tsx`/`.jsx` 组件与 Vue `<script setup>`；独立的 `.ts`/`.js` 文件不做通用语言图谱（定位保持前端专精），TypeScript 的语义类型查询请使用 `indexgraph_type_info`
+- 调用关系按词法作用域链做近似解析（内层声明遮蔽外层）；动态派发、对象方法调用追踪不到。跨文件调用无法确定指向哪个同名符号，以"候选"语气标注（`calleeName?`）而不是伪装成确定边；事件 handler 的同名符号歧义同样如实列出
+- Vue 模板用 `@vue/compiler-dom` 的 `baseParse` 解析（保留表达式原文），不校验表达式中变量是否真的存在——`@click="onTypo"` 会如实标注「未索引」而不是猜一个近似名
+- `indexgraph_node` 有响应总预算（默认 24000 字符源码），超出的同名匹配降级为一行定位信息并附重新查询提示，不会无界返回；`trace` 默认返回摘要与行号（每元素样式候选上限 8 条、调用链上限 20 条），源码请用 `indexgraph_node` 或 Read 获取
 - 目前一次只处理一层——嵌套函数会被各自记录为独立符号，但父子关系不做特殊标注
 - CSS 只认标准语法，不支持 Sass/Less 的嵌套写法（`&:hover` 这类）
-- `<script>`/`<style>` 提取是正则匹配标签文本，不区分"真的在页面里生效的标签"和"JS 字符串/模板字面量里刚好长得像标签的文本"——比如某个函数用字符串拼一段要 `document.write` 的打印页面 HTML，里面写的 `<style>...</style>` 也会被当成真实样式索引进去。索引到的内容仍然是文件里那个位置的真实文本（不会读错、不会读到别处），只是它未必是当前页面实际生效的规则，这一点脑子里过一下（这条只影响 `.html` 的标签提取；独立 `.css` 文件不走标签匹配、全文解析，无此问题）
+- HTML 标签提取走 parse5 真实解析（JS 字符串里的伪 `<style>` 不再被误索引）；但 `<template>` 之外的非可见标签（`script`/`style`/`meta` 等）不进 UI 元素索引
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "indexgraph",
-  "version": "0.0.11",
-  "description": "CodeGraph-style local code graph for frontend logic embedded in HTML <script>/<style> blocks — CLI + MCP server",
+  "version": "0.1.0",
+  "description": "CodeGraph-style local code graph for frontend logic embedded in HTML <script>/<style> blocks, standalone .css stylesheets, and .tsx/.jsx/.vue components — CLI + MCP server",
   "main": "lib/index-store.js",
   "bin": {
     "indexgraph": "bin/indexgraph.js"
@@ -12,13 +12,25 @@
   "scripts": {
     "test": "node --test"
   },
-  "keywords": ["mcp", "code-graph", "html", "javascript", "css"],
+  "keywords": [
+    "mcp",
+    "code-graph",
+    "html",
+    "javascript",
+    "css",
+    "tsx",
+    "vue",
+    "ui-trace"
+  ],
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@vue/compiler-dom": "^3.5.45",
+    "@vue/compiler-sfc": "^3.5.45",
     "acorn": "^8.17.0",
     "acorn-walk": "^8.3.5",
+    "parse5": "^8.1.1",
     "typescript": "^5.9.3"
   }
 }

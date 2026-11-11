@@ -5,6 +5,7 @@ const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const { loadIndex, ensureFresh, indexFileState } = require('./lib/index-store');
 const { nodeInfo, explore } = require('./lib/query');
+const { trace, formatTrace } = require('./lib/ui-trace');
 const { getTypeInfo } = require('./lib/ts-type-info');
 
 const MAX_ERROR_CHARS = 2048;
@@ -52,6 +53,25 @@ const TOOLS = [
         projectPath: { type: 'string', description: 'Absolute project root containing tsconfig.json; defaults to cwd' },
       },
       required: ['file', 'line', 'column'],
+    },
+  },
+  {
+    name: 'indexgraph_trace',
+    description: "Trace a UI element back to its implementation: given a button label, CSS class, DOM id, component name or selector, returns the declaring component, its directly-bound event handlers, what those handlers call, and matching CSS style candidates — every edge labeled with its evidence level (direct binding / candidate / selector match). Use when starting from something visible on the page rather than a known symbol name.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Visible static text of the element (button label, heading, link text)' },
+        className: { type: 'string', description: 'CSS class on the element, no leading dot' },
+        id: { type: 'string', description: 'DOM id attribute of the element' },
+        component: { type: 'string', description: 'Component name that renders the element (e.g. SettingsPanel)' },
+        selector: { type: 'string', description: 'CSS-style selector as a hard filter, e.g. "button.save", ".item", "div#main"' },
+        tag: { type: 'string', description: 'Tag or component tag name, e.g. button, MyWidget' },
+        file: { type: 'string', description: 'Optional: restrict matches to this file (relative to project root, or absolute) — disambiguates repeated labels.' },
+        limit: { type: 'number', minimum: 1, description: 'Max matches to return (default 5).' },
+        depth: { type: 'number', minimum: 1, maximum: 3, default: 1, description: 'Call-chain hops to expand from each bound handler. 1 = direct callees only.' },
+        projectPath: { type: 'string', description: 'Absolute path to the project root (must have a .indexgraph index built via `indexgraph init`). Defaults to cwd.' },
+      },
     },
   },
 ];
@@ -136,6 +156,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         `. Re-query with file/maxResults to fetch them.`;
     }
     return { content: [{ type: 'text', text }] };
+  }
+
+  if (name === 'indexgraph_trace') {
+    const result = trace(index, {
+      text: args.text,
+      className: args.className,
+      id: args.id,
+      component: args.component,
+      selector: args.selector,
+      tag: args.tag,
+    }, { file: args.file, limit: args.limit, depth: args.depth });
+    return { content: [{ type: 'text', text: formatTrace(result) }] };
   }
 
   if (name === 'indexgraph_explore') {

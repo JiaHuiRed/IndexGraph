@@ -36,7 +36,7 @@ test('F01 CLI: corrupt index self-heals instead of demanding init', async (t) =>
   assert.match(r.stderr, /corrupt/i, 'corruption must be surfaced on stderr');
   // index.json repaired to valid current-schema JSON
   const repaired = JSON.parse(fs.readFileSync(INDEX_JSON(root), 'utf-8'));
-  assert.equal(repaired.schemaVersion, 2);
+  assert.equal(repaired.schemaVersion, 3);
 });
 
 test('F01 CLI: missing index still asks for init (no silent first-build)', async (t) => {

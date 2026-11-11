@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { buildIndex, saveIndex, findIndexableFiles, ensureFresh, indexFileState, savedIndexPath } = require('../lib/index-store');
 const { nodeInfo, explore, allSymbols } = require('../lib/query');
+const { trace, formatTrace } = require('../lib/ui-trace');
 const pkg = require('../package.json');
 
 function requireIndex(root) {
@@ -45,14 +46,15 @@ function main() {
   if (cmd === 'init') {
     const target = rest[0] ? path.resolve(rest[0]) : root;
     const srcFiles = findIndexableFiles(target);
-    console.log(`Scanning ${target} — ${srcFiles.length} .html/.css file(s) found`);
+    console.log(`Scanning ${target} — ${srcFiles.length} indexable file(s) found (.html/.css/.tsx/.jsx/.vue)`);
     const index = buildIndex(target);
     saveIndex(target, index);
     const fileCount = Object.keys(index.files).length;
     const allSyms = Object.values(index.files).flatMap(f => f.symbols);
     const cssCount = allSyms.filter(s => s.kind.startsWith('css')).length;
+    const uiCount = Object.values(index.files).reduce((n, f) => n + (f.uiElements || []).length, 0);
     const edgeCount = Object.values(index.files).reduce((n, f) => n + f.edges.length, 0);
-    console.log(`Indexed ${fileCount} file(s) (.html inline blocks + standalone .css) — ${allSyms.length} symbols (${cssCount} CSS rules), ${edgeCount} call edges`);
+    console.log(`Indexed ${fileCount} file(s) — ${allSyms.length} symbols (${cssCount} CSS rules), ${edgeCount} call edges, ${uiCount} UI elements`);
     return;
   }
 
@@ -127,15 +129,37 @@ function main() {
     return;
   }
 
+  if (cmd === 'trace') {
+    // indexgraph trace --text "保存设置" --class settings-save --id save-btn
+    //                 --component Panel --selector "button.save" --tag button
+    //                 --file src/x.tsx --limit 5 --depth 1
+    const clueNames = { '--text': 'text', '--class': 'className', '--id': 'id', '--component': 'component', '--selector': 'selector', '--tag': 'tag' };
+    const clues = {};
+    const opts = {};
+    for (let i = 0; i < rest.length; i++) {
+      const a = rest[i];
+      if (clueNames[a]) clues[clueNames[a]] = rest[++i];
+      else if (a === '--file') opts.file = rest[++i];
+      else if (a === '--limit') opts.limit = Number(rest[++i]);
+      else if (a === '--depth') opts.depth = Number(rest[++i]);
+      else { console.error(`unknown trace argument: ${a}`); process.exit(1); }
+    }
+    const index = requireIndex(root);
+    const result = trace(index, clues, opts);
+    console.log(formatTrace(result));
+    return;
+  }
+
   console.log(`indexgraph v${pkg.version} — frontend (HTML <script>/<style>) code graph, CodeGraph-style
 
 Usage:
-  indexgraph init [path]        Scan .html/.css files, extract inline <script>/<style>, build the index
+  indexgraph init [path]        Scan .html/.css/.tsx/.jsx files, extract inline <script>/<style> + UI elements, build the index
   indexgraph files              List indexed files and symbol counts (largest first)
   indexgraph stats              Summarize the index: files, symbols by kind, edges, on-disk size
   indexgraph dump               Print the raw index as pretty JSON (redirect to a file to browse)
   indexgraph node <name> [file]  Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
   indexgraph explore "<query>"  Keyword search across symbol names / bodies
+  indexgraph trace              UI trace: --text/--class/--id/--component/--selector/--tag [--file] [--limit] [--depth]
   indexgraph version            Print version
 `);
 }

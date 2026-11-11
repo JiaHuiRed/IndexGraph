@@ -1,5 +1,32 @@
 # IndexGraph 更新日志
 
+## 0.1.0（2026-11-11）
+
+> **Frontend UI Trace**——从「前端函数与 CSS 规则检索」升级为「从界面元素追踪实现代码的轻量前端图谱」。给按钮文案、CSS class、DOM id、组件名或选择器，返回声明组件、直接绑定的事件、处理器调用链与 CSS 样式候选；组件文件 `.tsx`/`.jsx`/`.vue` 进入索引范围，HTML 标签提取换 parse5 真实解析。索引 schema v2 → v3（旧索引自动重建，无需手动删除）。**发布原则：trace 是一个新的查询维度，不是几个新文件扩展名**——每条关系都带证据标注，动态与歧义如实呈现为候选。
+
+### ✨ 新功能
+
+- **`indexgraph_trace`（MCP）/ `indexgraph trace`（CLI）** — UI 追踪入口。线索参数：`text`（可见静态文本）/ `className` / `id` / `component` / `selector`（CSS 语义硬过滤）/ `tag`，`file` 消歧，`limit`/`depth` 控制输出。返回声明位置、所属组件、事件绑定（含处理器符号定位与调用链）、class/id、样式候选；默认只给摘要与行号，源码留给 `indexgraph_node`/Read，单响应有预算（每元素样式候选 ≤8、调用链 ≤20、超出进 omitted 并附重查提示）
+- **证据标注体系** — `direct binding`（`onClick={handleSave}`、`@click="save"`、`onclick="save()"` 等静态可解析引用）/ `candidate`（内联箭头函数、动态 `:class`、`obj.method()` 之类 receiver 未知的引用，保留表达式原文）/ `selector match`（CSS 规则选择器命中 class/id，`@media` 上下文随规则名带出）——绝不把候选伪装成确定边；无证据不造边：handler 不是项目符号时标 `not indexed`，同名歧义全量列出，Vue 组件引用查不到定义时返回空而不是猜近似名。输出末尾固定 caveat：运行时 CSS cascade、动态行为未验证
+- **`.tsx`/`.jsx` 组件索引** — 基于仓库已有的 TypeScript Compiler API：函数/箭头/类声明收为符号（大写开头且含 JSX 判定为 `component`），调用边语义与 HTML 内联 JS 完全对齐（最近具名函数祖先拥有调用、词法作用域链解析、跨文件候选走 unresolved 过滤），JSX 标签全部收为 UI 元素（宿主标签 `element`、大写标签 `component-use`，后者反查定义）
+- **Vue SFC 索引** — `@vue/compiler-sfc` 拆块 + `@vue/compiler-dom` 的 `baseParse` 解析 template：`<script setup>`（含 `lang="ts"`）符号与调用边映射回文件绝对行号；模板元素按编译器自己的 `tagType` 识别组件引用（不是大小写猜测）；`@click="save"` 裸标识符判 direct，复合表达式进内联解析；`<style scoped>` 规则照常进 CSS 索引；模板局部损坏只记错误，可用部分照常索引。选 `baseParse` 而非 `compileTemplate` 是因为后者会把 `@click="save"` 改写成 `_ctx.save && _ctx.save(...args)` 的守卫表达式，毁掉 handler 证据
+- **UI Trace 的派生查找表** — 跨文件 UI ↔ CSS、UI ↔ 组件关系不落盘（组件改 class 后旧边会残留），查询时按 index 对象身份（WeakMap）构建 class/id/component 查找表并缓存——沿用 0.0.10 确立的「index 对象不可变」约束，增量更新自动拿到新关系
+
+### 🛡️ 行为修复（随 UI 索引顺带）
+
+- **HTML 标签提取换 parse5 真实解析** — 旧正则把「JS 字符串里长得像标签的文本」也当真（`document.write('<style>…</style>')` 会被索引进假规则）；parse5 带 source location 的真实解析根治此问题，script/style 块的行号契约不变，`<template>` 内容首次进入覆盖范围。README「已知局限」里对应条目移除
+
+### 🔒 存储
+
+- **索引 schema v2 → v3** — 文件条目新增 `uiElements`（tag/kind/行号/文本/classes/idAttr/提示属性/事件绑定/component 归属）。旧 v2 索引由既有的 `ensureFresh` 重建机制自动升级，无需手动删除；MCP/CLI 的损坏自愈路径同样产出 v3（相关测试断言已更新）
+
+### 🧪 验证
+
+- 新增 `test/ui-trace.test.js`（10 例：文本/class/selector 定位、组件归属、direct/candidate/not-indexed 诚实性、重复文案全量返回、增量改名后无残留边、omitted 预算、selector 硬过滤语义）、`test/ui-vue.test.js`（5 例：模板按钮 → `@click` → script setup 符号、scoped style 候选、动态 class、tagType 组件识别、坏模板隔离）、`test/ui-migrate-smoke.test.js`（2 例：v2 索引自动升 v3、真实 stdio JSON-RPC 上 trace 全链路）
+- `mcp-stdio.test.js` T10 扩展：`tools/list` 断言四个工具、真实 stdio 调 `indexgraph_trace` 验证 text→组件→direct binding 链路
+- 手工探针对照建议书场景：React TSX 按钮（跨文件调用链 depth 2）、老式 HTML `onclick`、Solid 风格 TSX、Vue SFC 全通过；伪 `<style>` 不再误索引实测确认
+- `npm test`：**60/60 通过**（0.0.11 的 43 + 本轮 17；schema 断言两处随 v3 更新）
+
 ## 0.0.11（2026-11-05）
 
 > 查询性能批次 + 索引可读入口。`explore` 不再每次查询重算全部符号的 body，`node` 同一文件只读一次；新增 `stats`/`dump`，不再需要直接翻单行 `index.json`。
