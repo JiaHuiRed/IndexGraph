@@ -46,7 +46,7 @@ function main() {
   if (cmd === 'init') {
     const target = rest[0] ? path.resolve(rest[0]) : root;
     const srcFiles = findIndexableFiles(target);
-    console.log(`Scanning ${target} — ${srcFiles.length} indexable file(s) found (.html/.css/.tsx/.jsx/.vue)`);
+    console.log(`Scanning ${target} — ${srcFiles.length} indexable file(s) found (.html/.css/.js/.mjs/.cjs/.tsx/.jsx/.vue)`);
     const index = buildIndex(target);
     saveIndex(target, index);
     const fileCount = Object.keys(index.files).length;
@@ -153,7 +153,7 @@ function main() {
   console.log(`indexgraph v${pkg.version} — frontend (HTML <script>/<style>) code graph, CodeGraph-style
 
 Usage:
-  indexgraph init [path]        Scan .html/.css/.tsx/.jsx files, extract inline <script>/<style> + UI elements, build the index
+  indexgraph init [path]        Scan .html/.css/.js/.mjs/.cjs/.tsx/.jsx/.vue files, extract inline <script>/<style> + UI elements, build the index
   indexgraph files              List indexed files and symbol counts (largest first)
   indexgraph stats              Summarize the index: files, symbols by kind, edges, on-disk size
   indexgraph dump               Print the raw index as pretty JSON (redirect to a file to browse)

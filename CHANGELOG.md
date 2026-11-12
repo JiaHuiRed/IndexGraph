@@ -1,5 +1,22 @@
 # IndexGraph 更新日志
 
+## 0.2.0（2026-11-12）
+
+> **独立脚本文件进入索引**——`.js`/`.mjs`/`.cjs` 不再需要被包在 HTML 里才能被检索。整份文件当作一个从第 1 行开始的 script 块，与内联 `<script>` 走完全相同的符号/调用边解析；ESM 语法（`import`/`export`）在 script 模式下必然失败，改用 module 模式重试一次而不是整文件丢弃。触发场景：把前端逻辑从单文件 `index.html` 的内联 `<script>` 拆成 `js/*.js` 之后，旧版本会静默把它们全部漏掉——对按业务域拆分前端的项目，等于图谱直接失效。
+
+### ✨ 新功能
+
+- **独立 `.js`/`.mjs`/`.cjs` 索引** — 扫描范围新增三种脚本扩展名。`parseFileEntry` 把它们整体交给 `parseBlock(content, 1)`：符号（函数声明 / 函数与箭头赋值）、调用边、符号 id 的 `file#行:列` 身份全部照旧，跨文件同名歧义仍走 unresolved 候选过滤。与独立 `.css` 的处理方式对称（整文件 = 一个块）
+- **ESM 回退** — `parseBlock` 新增可选 `opts.sourceType`。缺省仍是 `script`；script 模式解析失败且调用方未显式指定类型时，自动以 `module` 重试一次。显式传入 `sourceType` 的调用不做静默重试，真实语法错误照常抛出（不把错误藏起来）
+
+### 🧪 测试
+
+- 新增 `test/standalone-js.test.js`（T11a–T11f）：ESM 经 module 重试成功解析并收集 `export function`/`export const` 箭头；显式 `sourceType` 时语法错误仍抛出；`.js`/`.mjs`/`.cjs` 被发现而 `.ts` 仍在范围外；`buildIndex` 从独立 `.js` 取出符号与文件内调用边；ESM 文件端到端索引无 `parseError`；独立 `.js` 符号与 HTML 内联块进入同一全局名字空间。全套 65 个测试通过
+
+### 📝 文档
+
+- README 描述、特色（函数级索引）、CLI 命令表、已知局限四处同步；已知局限明确「独立 `.js` 走 acorn 只认纯 JS，含 JSX/TS 语法请用 `.jsx`/`.tsx` 走 TypeScript 解析器」
+
 ## 0.1.0（2026-11-11）
 
 > **Frontend UI Trace**——从「前端函数与 CSS 规则检索」升级为「从界面元素追踪实现代码的轻量前端图谱」。给按钮文案、CSS class、DOM id、组件名或选择器，返回声明组件、直接绑定的事件、处理器调用链与 CSS 样式候选；组件文件 `.tsx`/`.jsx`/`.vue` 进入索引范围，HTML 标签提取换 parse5 真实解析。索引 schema v2 → v3（旧索引自动重建，无需手动删除）。**发布原则：trace 是一个新的查询维度，不是几个新文件扩展名**——每条关系都带证据标注，动态与歧义如实呈现为候选。
