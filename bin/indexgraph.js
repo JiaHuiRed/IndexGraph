@@ -131,9 +131,9 @@ function main() {
 
   if (cmd === 'trace') {
     // indexgraph trace --text "保存设置" --class settings-save --id save-btn
-    //                 --component Panel --selector "button.save" --tag button
+    //                 --data-action settings-save --component Panel --selector "button.save" --tag button
     //                 --file src/x.tsx --limit 5 --depth 1
-    const clueNames = { '--text': 'text', '--class': 'className', '--id': 'id', '--component': 'component', '--selector': 'selector', '--tag': 'tag' };
+    const clueNames = { '--text': 'text', '--class': 'className', '--id': 'id', '--data-action': 'dataAction', '--component': 'component', '--selector': 'selector', '--tag': 'tag' };
     const clues = {};
     const opts = {};
     for (let i = 0; i < rest.length; i++) {
@@ -159,7 +159,7 @@ Usage:
   indexgraph dump               Print the raw index as pretty JSON (redirect to a file to browse)
   indexgraph node <name> [file]  Exact symbol: source + callers + callees (JS function name or CSS selector/class/id)
   indexgraph explore "<query>"  Keyword search across symbol names / bodies
-  indexgraph trace              UI trace: --text/--class/--id/--component/--selector/--tag [--file] [--limit] [--depth]
+  indexgraph trace              UI trace: --text/--class/--id/--data-action/--component/--selector/--tag [--file] [--limit] [--depth]
   indexgraph version            Print version
 `);
 }
