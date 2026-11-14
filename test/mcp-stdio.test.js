@@ -70,9 +70,9 @@ test('F01 MCP: corrupt index self-heals through the real stdio path', async (t) 
   const text = node.result.content[0].text;
   assert.match(text, /healthy/, 'corrupt index must self-heal, not report "run init"');
   assert.doesNotMatch(text, /run "indexgraph init"/);
-  // index.json repaired to valid current-schema JSON (v3 since UI Trace)
+  // index.json repaired to valid current-schema JSON (v4 since data-action)
   const repaired = JSON.parse(fs.readFileSync(INDEX_JSON(root), 'utf-8'));
-  assert.equal(repaired.schemaVersion, 3);
+  assert.equal(repaired.schemaVersion, 4);
 });
 
 test('F01 MCP: missing index still asks for init (no silent first-build)', async (t) => {
@@ -181,4 +181,17 @@ test('T10: initialize + list tools + node/explore/type_info round-trip', async (
   assert.match(traceText, /Panel/, 'declaring component surfaced');
   assert.match(traceText, /direct binding/, 'evidence label present');
   assert.match(traceText, /handleGo/, 'bound handler named');
+  // MCP schema + request dispatch of the new exact static-attribute clue.
+  fs.writeFileSync(path.join(root, 'action.html'),
+    '<button data-action="redcode-open-panel">Open</button>');
+  const action = await call('tools/call', {
+    name: 'indexgraph_trace',
+    arguments: { dataAction: 'redcode-open-panel', projectPath: root },
+  });
+  assert.match(action.result.content[0].text, /data-action="redcode-open-panel"/);
+  const notAction = await call('tools/call', {
+    name: 'indexgraph_trace',
+    arguments: { dataAction: 'redcode-open', projectPath: root },
+  });
+  assert.match(notAction.result.content[0].text, /No UI elements match/);
 });
