@@ -1,5 +1,11 @@
 # IndexGraph 更新日志
 
+## Unreleased（基于 0.2.0）
+
+- **UI Trace 支持 `data-action`** — HTML、JSX/TSX 和 Vue 模板记录静态 `data-action`，新增 `indexgraph trace --data-action <value>` 和 MCP `indexgraph_trace({ dataAction: "..." })`；与 `file`、`selector` 组合筛选，精确值匹配不使用子串或模糊推测，仍返回事件绑定、所属组件与样式候选。
+- **索引 schema v3 → v4** — 旧索引自动重建以补齐属性数据；动态绑定不当作静态定位证据。增加解析、查询、CLI、MCP 和迁移回归测试。
+
+
 ## 0.2.0（2026-11-12）
 
 > **独立脚本文件进入索引**——`.js`/`.mjs`/`.cjs` 不再需要被包在 HTML 里才能被检索。整份文件当作一个从第 1 行开始的 script 块，与内联 `<script>` 走完全相同的符号/调用边解析；ESM 语法（`import`/`export`）在 script 模式下必然失败，改用 module 模式重试一次而不是整文件丢弃。触发场景：把前端逻辑从单文件 `index.html` 的内联 `<script>` 拆成 `js/*.js` 之后，旧版本会静默把它们全部漏掉——对按业务域拆分前端的项目，等于图谱直接失效。
