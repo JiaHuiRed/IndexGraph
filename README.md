@@ -11,7 +11,7 @@
 
 ## ✨ 特色
 
-- **UI 追踪（`indexgraph trace`）** — 从「界面上看到的东西」反查实现代码：给按钮文案、CSS class、DOM id、组件名或选择器，返回声明组件、直接绑定的事件处理器、处理器的调用链，以及命中的 CSS 样式候选；每条关系都带证据标注（`direct binding` / `candidate` / `selector match`），动态表达式、运行时分支、跨文件同名歧义一律以候选呈现，不冒充确定边
+- **UI 追踪（`indexgraph trace`）** — 从「界面上看到的东西」反查实现代码：给按钮文案、CSS class、DOM id、静态 `data-action`、组件名或选择器，返回声明组件、直接绑定的事件处理器、处理器的调用链，以及命中的 CSS 样式候选；每条关系都带证据标注（`direct binding` / `candidate` / `selector match`），动态表达式、运行时分支、跨文件同名歧义一律以候选呈现，不冒充确定边
   - **函数级索引** — 提取内联 `<script>`、独立 `.js`/`.mjs`/`.cjs` 脚本文件、`.tsx`/`.jsx` 组件与 Vue `<script setup>` 里的函数声明 / 箭头函数赋值，记录真实行号（映射回原始文件，不是提取后的偏移量）；大写开头且含 JSX 的函数识别为组件。独立脚本文件整体当作一个从第 1 行开始的 script 块，与本文件内联 `<script>` 走同一套解析；ESM（`import`/`export`）解析失败时自动改用 module 模式重试，不会整文件丢弃
 - **调用关系图** — 谁调用了谁，一次查询就有调用者 + 被调用者列表；每条边绑定到具体符号（`file#行:列` 身份），同名函数不串线，嵌套函数各自拥有自己的调用边
 - **CSS 规则索引** — 提取内联 `<style>` 与独立 `.css` 文件里的规则（含 Vue `<style scoped>`），按完整选择器索引，也能直接用裸的 class/id 名查（比如 `group-hdr` 能找到 `table.rec-table th.group-hdr`）；`@media`/`@supports` 会递归展开成内部选择器各自独立可查，`@keyframes`/`@font-face` 这类整体当一个符号（内部不是选择器列表，拆了也没意义）
@@ -44,6 +44,7 @@ indexgraph explore "对账单附件怎么渲染的"
 # UI 追踪：从界面上看到的东西反查实现
 indexgraph trace --text "保存设置"
 indexgraph trace --class settings-save --depth 2
+indexgraph trace --data-action save-settings --depth 2
 ```
 
 ---
@@ -58,7 +59,7 @@ indexgraph trace --class settings-save --depth 2
 | `indexgraph dump` | 把索引按缩进 JSON 输出到 stdout（重定向到文件后再浏览） |
 | `indexgraph node <name>` | 精确符号：源码 + 调用者 + 被调用者（函数名，或 CSS 选择器/class/id） |
 | `indexgraph explore "<query>"` | 关键词模糊搜索 |
-| `indexgraph trace` | UI 追踪：`--text "保存设置"` / `--class settings-save` / `--id save-btn` / `--component Panel` / `--selector "button.save"` / `--tag button`，可加 `--file` 消歧、`--limit`/`--depth` 控制输出 |
+| `indexgraph trace` | UI 追踪：`--text "保存设置"` / `--class settings-save` / `--id save-btn` / `--data-action save-settings` / `--component Panel` / `--selector "button.save"` / `--tag button`，可加 `--file` 消歧、`--limit`/`--depth` 控制输出 |
 | `indexgraph version` | 打印版本号 |
 
 > `.indexgraph/index.json` 是**紧凑单行 JSON**——它给查询侧读，不是给人翻的。要看索引内容用 `indexgraph stats`（摘要）或 `indexgraph dump > index.pretty.json`（完整结构，缩进后浏览）。
@@ -77,7 +78,9 @@ indexgraph trace --class settings-save --depth 2
 }
 ```
 
-重启 agent 后即可使用 `indexgraph_node` / `indexgraph_explore` / `indexgraph_trace` / `indexgraph_type_info` 四个工具。`indexgraph_trace` 的典型用法：从 WebQA 等运行时观察工具拿到按钮文案/class，直接喂给 trace 拿到组件与事件绑定，再改代码验证——静态定位（IndexGraph）与运行时观察（WebQA）通过普通文本线索协作，互不依赖。
+重启 agent 后即可使用 `indexgraph_node` / `indexgraph_explore` / `indexgraph_trace` / `indexgraph_type_info` 四个工具。`indexgraph_trace` 支持 `dataAction: "save-settings"` 精确定位静态 `data-action` 属性；可结合 `file`、`selector` 进一步筛选。动态 `data-action={expr}` / Vue `:data-action="expr"` 不能静态确定，不会被当作已命中的值。
+
+`indexgraph_trace` 的典型用法：从 WebQA 等运行时观察工具拿到按钮文案/class，直接喂给 trace 拿到组件与事件绑定，再改代码验证——静态定位（IndexGraph）与运行时观察（WebQA）通过普通文本线索协作，互不依赖。
 
 ---
 

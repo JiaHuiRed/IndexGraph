@@ -57,13 +57,14 @@ const TOOLS = [
   },
   {
     name: 'indexgraph_trace',
-    description: "Trace a UI element back to its implementation: given a button label, CSS class, DOM id, component name or selector, returns the declaring component, its directly-bound event handlers, what those handlers call, and matching CSS style candidates — every edge labeled with its evidence level (direct binding / candidate / selector match). Use when starting from something visible on the page rather than a known symbol name.",
+    description: "Trace a UI element back to its implementation: given a button label, CSS class, DOM id, data-action, component name or selector, returns the declaring component, its directly-bound event handlers, what those handlers call, and matching CSS style candidates — every edge labeled with its evidence level (direct binding / candidate / selector match). Use when starting from something visible on the page rather than a known symbol name.",
     inputSchema: {
       type: 'object',
       properties: {
         text: { type: 'string', description: 'Visible static text of the element (button label, heading, link text)' },
         className: { type: 'string', description: 'CSS class on the element, no leading dot' },
         id: { type: 'string', description: 'DOM id attribute of the element' },
+        dataAction: { type: 'string', description: 'Exact static data-action attribute value (e.g. settings-save); dynamic expressions are not resolved' },
         component: { type: 'string', description: 'Component name that renders the element (e.g. SettingsPanel)' },
         selector: { type: 'string', description: 'CSS-style selector as a hard filter, e.g. "button.save", ".item", "div#main"' },
         tag: { type: 'string', description: 'Tag or component tag name, e.g. button, MyWidget' },
@@ -163,6 +164,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       text: args.text,
       className: args.className,
       id: args.id,
+      dataAction: args.dataAction,
       component: args.component,
       selector: args.selector,
       tag: args.tag,

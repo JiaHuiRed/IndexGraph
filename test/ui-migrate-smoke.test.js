@@ -9,14 +9,14 @@ const { spawn } = require('child_process');
 const store = require('../lib/index-store');
 const { makeProject } = require('./helpers');
 
-test('v2 index rebuilds to v3 automatically (copy/move workspace scenario)', (t) => {
+test('v2 index rebuilds to v4 automatically (copy/move workspace scenario)', (t) => {
   const root = makeProject(t, { 'app.vue': '<template><button class="b" @click="go">GO</button></template>\n<script setup>function go(){}</script>\n' });
   // Forge a v2 index: v3 fields absent, schemaVersion 2.
   fs.mkdirSync(path.join(root, '.indexgraph'), { recursive: true });
   const v2 = { schemaVersion: 2, root: path.resolve(root), builtAt: Date.now() - 5000, files: {} };
   fs.writeFileSync(path.join(root, '.indexgraph', 'index.json'), JSON.stringify(v2));
   const fresh = store.ensureFresh(root);
-  assert.equal(fresh.schemaVersion, 3, 'schema bumped to 3');
+  assert.equal(fresh.schemaVersion, 4, 'schema bumped to 4');
   const el = fresh.files['app.vue'].uiElements[0];
   assert.equal(el.tag, 'button', 'UI elements rebuilt from source');
   assert.equal(el.events[0].handler, 'go');
